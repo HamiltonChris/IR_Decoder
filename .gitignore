@@ -4,3 +4,4 @@
 *.d
 
 .Makefile.swpx
+IR_Receiver_tests
