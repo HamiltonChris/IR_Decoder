@@ -1,3 +1,5 @@
+# add @ for silent output
+SILENCE = @
 
 #---- Outputs ----#
 COMPONENT_NAME = IR_Receiver
