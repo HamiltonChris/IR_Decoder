@@ -3,6 +3,7 @@
 #include <string.h>
 
 static uint32_t getPulseTime(uint32_t time0, uint32_t time1, uint32_t period, uint8_t clockSpeed);
+static int8_t decodePulse(uint32_t fallingTime, uint32_t risingTime);
 
 void IR_Receiver_Init(IR_Receiver_t *receiver)
 {
@@ -29,6 +30,7 @@ void IR_Receiver_Decode(IR_Receiver_t *receiver)
     {
         uint32_t fallingTime = getPulseTime(time0, time1, receiver->period, receiver->clockSpeed);
         uint32_t risingTime = getPulseTime(time1, time2, receiver->period, receiver->clockSpeed);
+        int8_t signal = decodePulse(fallingTime, risingTime);
 
         switch (receiver->state)
         {
@@ -41,21 +43,10 @@ void IR_Receiver_Decode(IR_Receiver_t *receiver)
             }
             break;
         case Address:
-            if (fallingTime < 600 && fallingTime > 500)
+            if (signal >= 0)
             {
-                if (risingTime > 1500 && risingTime < 1800)
-                {
-                    receiver->message->address |= 1 << receiver->pulseNumber;
-                    receiver->buffer[receiver->currentIndex] = 0;
-                    receiver->currentIndex++;
-                    receiver->pulseNumber++;
-                }
-                else if (risingTime < 600 && risingTime > 500)
-                {
-                    receiver->buffer[receiver->currentIndex] = 0;
-                    receiver->currentIndex++;
-                    receiver->pulseNumber++;
-                }
+                receiver->message->address |= signal << receiver->pulseNumber;
+                receiver->pulseNumber++;
             }
 
             if (receiver->pulseNumber == 8)
@@ -66,21 +57,10 @@ void IR_Receiver_Decode(IR_Receiver_t *receiver)
 
             break;
         case AddressInv:
-            if (fallingTime < 600 && fallingTime > 500)
+            if (signal >= 0)
             {
-                if (risingTime > 1500 && risingTime < 1800)
-                {
-                    receiver->message->addressInv |= 1 << receiver->pulseNumber;
-                    receiver->buffer[receiver->currentIndex] = 0;
-                    receiver->currentIndex++;
-                    receiver->pulseNumber++;
-                }
-                else if (risingTime < 600 && risingTime > 500)
-                {
-                    receiver->buffer[receiver->currentIndex] = 0;
-                    receiver->currentIndex++;
-                    receiver->pulseNumber++;
-                }
+                receiver->message->addressInv |= signal << receiver->pulseNumber;
+                receiver->pulseNumber++;
             }
 
             if (receiver->pulseNumber == 8)
@@ -90,21 +70,10 @@ void IR_Receiver_Decode(IR_Receiver_t *receiver)
             }
             break;
         case Command:
-            if (fallingTime < 600 && fallingTime > 500)
+            if (signal >= 0)
             {
-                if (risingTime > 1500 && risingTime < 1800)
-                {
-                    receiver->message->command |= 1 << receiver->pulseNumber;
-                    receiver->buffer[receiver->currentIndex] = 0;
-                    receiver->currentIndex++;
-                    receiver->pulseNumber++;
-                }
-                else if (risingTime < 600 && risingTime > 500)
-                {
-                    receiver->buffer[receiver->currentIndex] = 0;
-                    receiver->currentIndex++;
-                    receiver->pulseNumber++;
-                }
+                receiver->message->command |= signal << receiver->pulseNumber;
+                receiver->pulseNumber++;
             }
 
             if (receiver->pulseNumber == 8)
@@ -114,8 +83,29 @@ void IR_Receiver_Decode(IR_Receiver_t *receiver)
             }
             break;
         case CommandInv:
+            if (signal >= 0)
+            {
+                receiver->message->commandInv |= signal << receiver->pulseNumber;
+                receiver->pulseNumber++;
+            }
+
+            if (receiver->pulseNumber == 8)
+            {
+                receiver->pulseNumber = 0;
+                receiver->state = LeadIn;
+                // trigger interrupt
+                //
+                // delete extra values
+                // weird edge case when DMA doesn't have the last value but needs to delete it
+            }
             break;
         default:
+        }
+
+        if (signal >= 0)
+        {
+            receiver->buffer[receiver->currentIndex] = 0;
+            receiver->currentIndex++;
         }
 
         receiver->buffer[receiver->currentIndex] = 0;
@@ -130,4 +120,21 @@ void IR_Receiver_Decode(IR_Receiver_t *receiver)
 static uint32_t getPulseTime(uint32_t time0, uint32_t time1, uint32_t period, uint8_t clockSpeed)
 {
     return time0 > time1 ? (period - time0 + time1) / clockSpeed : (time1 - time0) / clockSpeed;
+}
+
+static int8_t decodePulse(uint32_t fallingTime, uint32_t risingTime)
+{
+    if (fallingTime < 600 && fallingTime > 500)
+    {
+        if (risingTime > 1500 && risingTime < 1800)
+        {
+            return 1;
+        }
+        else if (risingTime < 600 && risingTime > 500)
+        {
+            return 0;
+        }
+    }
+
+    return -1;
 }

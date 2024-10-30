@@ -281,3 +281,33 @@ TEST(IR_Receiver, Decode_Command)
     BYTES_EQUAL(0xE7, pReceiver->message->command);
     CHECK(pReceiver->state == CommandInv);
 }
+
+TEST(IR_Receiver, Decode_CommandInv)
+{
+    pReceiver->state = CommandInv;
+
+    data[0] = 2916332;
+    data[1] = 2965982;
+    data[2] = 3109336;
+    data[3] = 3156946;
+    data[4] = 3202733;
+    data[5] = 3252275;
+    data[6] = 3297932;
+    data[7] = 3347536;
+    data[8] = 3490895;
+    data[9] = 3538350;
+    data[10] = 3584017;
+    data[11] = 3633728;
+    data[12] = 3776956;
+    data[13] = 3824498;
+    data[14] = 3967833;
+    data[15] = 4015342;
+    data[16] = 4158628;
+
+    IR_Receiver_Decode(pReceiver);
+
+    BYTES_EQUAL(16, pReceiver->currentIndex);
+    BYTES_EQUAL(0, pReceiver->pulseNumber);
+    CHECK(pReceiver->state == LeadIn);
+    BYTES_EQUAL(0xE9, pReceiver->message->commandInv);
+}
