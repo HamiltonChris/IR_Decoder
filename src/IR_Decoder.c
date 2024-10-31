@@ -2,126 +2,121 @@
 
 #include <string.h>
 
+static void clearCurrentIndex(IR_Decoder_t *decoder);
 static uint32_t getPulseTime(uint32_t time0, uint32_t time1, uint32_t period, uint8_t clockSpeed);
 static int8_t decodePulse(uint32_t fallingTime, uint32_t risingTime);
 
-void IR_Decoder_Init(IR_Decoder_t *receiver)
+void IR_Decoder_Init(IR_Decoder_t *decoder)
 {
-    receiver->currentIndex = 0;
-    receiver->pulseNumber = 0;
-    receiver->state = LeadIn;
-    if (receiver->message)
+    decoder->currentIndex = 0;
+    decoder->pulseNumber = 0;
+    decoder->state = LeadIn;
+    if (decoder->message)
     {
-        receiver->message->address = 0;
-        receiver->message->addressInv = 0;
-        receiver->message->command = 0;
-        receiver->message->commandInv = 0;
-        receiver->message->repeat = 0;
+        decoder->message->address = 0;
+        decoder->message->addressInv = 0;
+        decoder->message->command = 0;
+        decoder->message->commandInv = 0;
+        decoder->message->repeat = 0;
     }
-    memset(receiver->buffer, 0, receiver->bufferSize * sizeof(*(receiver->buffer)));
+    memset(decoder->buffer, 0, decoder->bufferSize * sizeof(*(decoder->buffer)));
 }
 
-void IR_Decoder_Decode(IR_Decoder_t *receiver)
+void IR_Decoder_Decode(IR_Decoder_t *decoder)
 {
-    uint32_t time0 = receiver->buffer[receiver->currentIndex];
-    uint32_t time1 = receiver->buffer[receiver->currentIndex + 1];
-    uint32_t time2 = receiver->buffer[receiver->currentIndex + 2];
+    uint32_t time0 = decoder->buffer[decoder->currentIndex];
+    uint32_t time1 = decoder->buffer[(decoder->currentIndex + 1) % decoder->bufferSize];
+    uint32_t time2 = decoder->buffer[(decoder->currentIndex + 2) % decoder->bufferSize];
 
     while (time0 > 0 && time1 > 0 && time2 > 0)
     {
-        uint32_t fallingTime = getPulseTime(time0, time1, receiver->period, receiver->clockSpeed);
-        uint32_t risingTime = getPulseTime(time1, time2, receiver->period, receiver->clockSpeed);
+        uint32_t fallingTime = getPulseTime(time0, time1, decoder->period, decoder->clockSpeed);
+        uint32_t risingTime = getPulseTime(time1, time2, decoder->period, decoder->clockSpeed);
         int8_t signal = decodePulse(fallingTime, risingTime);
 
-        switch (receiver->state)
+        switch (decoder->state)
         {
         case LeadIn:
             if (fallingTime < 9250 && fallingTime > 8750)
             {
                 if (risingTime < 4750 && risingTime > 4250)
                 {
-                    receiver->state = Address;
+                    decoder->state = Address;
 
                     // clear message buffer for new message
-                    receiver->message->address = 0;
-                    receiver->message->addressInv = 0;
-                    receiver->message->command = 0;
-                    receiver->message->commandInv = 0;
-                    receiver->message->repeat = 0;
+                    decoder->message->address = 0;
+                    decoder->message->addressInv = 0;
+                    decoder->message->command = 0;
+                    decoder->message->commandInv = 0;
+                    decoder->message->repeat = 0;
 
-                    receiver->buffer[receiver->currentIndex] = 0;
-                    receiver->currentIndex++;
+                    clearCurrentIndex(decoder);
                 }
                 else if (risingTime < 2750 && risingTime > 2250)
                 {
-                    receiver->message->repeat++;
-                    receiver->decodeCallback(receiver->message);
-                    receiver->buffer[receiver->currentIndex] = 0;
-                    receiver->currentIndex++;
-                    receiver->buffer[receiver->currentIndex] = 0;
-                    receiver->currentIndex++;
-                    receiver->buffer[receiver->currentIndex] = 0;
-                    receiver->currentIndex++;
+                    decoder->message->repeat++;
+                    decoder->decodeCallback(decoder->message);
+                    clearCurrentIndex(decoder);
+                    clearCurrentIndex(decoder);
+                    clearCurrentIndex(decoder);
                 }
             }
             break;
         case Address:
             if (signal >= 0)
             {
-                receiver->message->address |= signal << receiver->pulseNumber;
-                receiver->pulseNumber++;
+                decoder->message->address |= signal << decoder->pulseNumber;
+                decoder->pulseNumber++;
             }
 
-            if (receiver->pulseNumber == 8)
+            if (decoder->pulseNumber == 8)
             {
-                receiver->pulseNumber = 0;
-                receiver->state = AddressInv;
+                decoder->pulseNumber = 0;
+                decoder->state = AddressInv;
             }
 
             break;
         case AddressInv:
             if (signal >= 0)
             {
-                receiver->message->addressInv |= signal << receiver->pulseNumber;
-                receiver->pulseNumber++;
+                decoder->message->addressInv |= signal << decoder->pulseNumber;
+                decoder->pulseNumber++;
             }
 
-            if (receiver->pulseNumber == 8)
+            if (decoder->pulseNumber == 8)
             {
-                receiver->pulseNumber = 0;
-                receiver->state = Command;
+                decoder->pulseNumber = 0;
+                decoder->state = Command;
             }
             break;
         case Command:
             if (signal >= 0)
             {
-                receiver->message->command |= signal << receiver->pulseNumber;
-                receiver->pulseNumber++;
+                decoder->message->command |= signal << decoder->pulseNumber;
+                decoder->pulseNumber++;
             }
 
-            if (receiver->pulseNumber == 8)
+            if (decoder->pulseNumber == 8)
             {
-                receiver->pulseNumber = 0;
-                receiver->state = CommandInv;
+                decoder->pulseNumber = 0;
+                decoder->state = CommandInv;
             }
             break;
         case CommandInv:
             if (signal >= 0)
             {
-                receiver->message->commandInv |= signal << receiver->pulseNumber;
-                receiver->pulseNumber++;
+                decoder->message->commandInv |= signal << decoder->pulseNumber;
+                decoder->pulseNumber++;
             }
 
-            if (receiver->pulseNumber == 8)
+            if (decoder->pulseNumber == 8)
             {
-                receiver->decodeCallback(receiver->message);
-                receiver->pulseNumber = 0;
-                receiver->state = LeadIn;
+                decoder->decodeCallback(decoder->message);
+                decoder->pulseNumber = 0;
+                decoder->state = LeadIn;
                 // there is an extra rising time at the end of the signal that needs to be removed
-                receiver->buffer[receiver->currentIndex] = 0;
-                receiver->currentIndex++;
-                receiver->buffer[receiver->currentIndex] = 0;
-                receiver->currentIndex++;
+                clearCurrentIndex(decoder);
+                clearCurrentIndex(decoder);
                 // Note: weird edge case when DMA doesn't have the last value but needs to delete it
             }
             break;
@@ -130,17 +125,21 @@ void IR_Decoder_Decode(IR_Decoder_t *receiver)
 
         if (signal >= 0)
         {
-            receiver->buffer[receiver->currentIndex] = 0;
-            receiver->currentIndex++;
+            clearCurrentIndex(decoder);
         }
 
-        receiver->buffer[receiver->currentIndex] = 0;
-        receiver->currentIndex++;
+        clearCurrentIndex(decoder);
 
-        time0 = receiver->buffer[receiver->currentIndex];
-        time1 = receiver->buffer[receiver->currentIndex + 1];
-        time2 = receiver->buffer[receiver->currentIndex + 2];
+        time0 = decoder->buffer[decoder->currentIndex];
+        time1 = decoder->buffer[(decoder->currentIndex + 1) % decoder->bufferSize];
+        time2 = decoder->buffer[(decoder->currentIndex + 2) % decoder->bufferSize];
     }
+}
+
+static void clearCurrentIndex(IR_Decoder_t *decoder)
+{
+        decoder->buffer[decoder->currentIndex] = 0;
+        decoder->currentIndex = (decoder->currentIndex + 1) % decoder->bufferSize;
 }
 
 static uint32_t getPulseTime(uint32_t time0, uint32_t time1, uint32_t period, uint8_t clockSpeed)

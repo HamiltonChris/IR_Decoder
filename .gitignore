@@ -4,5 +4,5 @@
 *.d
 
 .Makefile.swpx
-IR_Receiver_tests
+IR_Decoder_tests
 settings.json
