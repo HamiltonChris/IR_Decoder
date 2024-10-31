@@ -15,11 +15,17 @@ extern "C"
 static uint32_t data[BUFFER_SIZE];
 static IR_Receiver_t *pReceiver;
 static IR_Message_t *pMessage;
+static uint8_t decodedCommand;
+static uint8_t repeatCommand;
+
+static void decodeFinished_callback(IR_Message_t *pMessage);
 
 TEST_GROUP(IR_Receiver)
 {
     void setup()
     {
+        decodedCommand = 0;
+        repeatCommand = 0;
         pReceiver = (IR_Receiver_t*)malloc(sizeof(IR_Receiver_t));
         pMessage = (IR_Message_t*)malloc(sizeof(IR_Message_t));
         pReceiver->buffer = data;
@@ -28,6 +34,7 @@ TEST_GROUP(IR_Receiver)
         pReceiver->clockSpeed = CLOCK_SPEED_MHZ;
         pReceiver->period = PERIOD;
         pReceiver->message = pMessage;
+        pReceiver->decodeCallback = &decodeFinished_callback;
         IR_Receiver_Init(pReceiver);
     }
 
@@ -46,9 +53,10 @@ TEST(IR_Receiver, Init)
     IR_Message_t message;
 
     message.address = 0xFF;
-    message.addressInv = 0xFF;
-    message.command = 0xFF;
-    message.commandInv = 0xFF;
+    message.addressInv = 0xFA;
+    message.command = 0x79;
+    message.commandInv = 0xA5;
+    message.repeat = 1;
 
     memset(data, 0xFFFFFFFF, sizeof(data));
 
@@ -60,6 +68,7 @@ TEST(IR_Receiver, Init)
     receiver.clockSpeed = CLOCK_SPEED_MHZ;
     receiver.period = PERIOD;
     receiver.message = &message;
+    receiver.decodeCallback = &decodeFinished_callback;
 
     IR_Receiver_Init(&receiver);
     BYTES_EQUAL(0, receiver.currentIndex);
@@ -72,6 +81,8 @@ TEST(IR_Receiver, Init)
     CHECK(receiver.message->addressInv == 0);
     CHECK(receiver.message->command == 0);
     CHECK(receiver.message->commandInv == 0);
+    CHECK(receiver.message->repeat == 0);
+    CHECK(receiver.decodeCallback);
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
         LONGLONGS_EQUAL(0, receiver.buffer[i]);
@@ -112,6 +123,12 @@ TEST(IR_Receiver, Decode_TwoValues)
 
 TEST(IR_Receiver, Decode_ValidLeadIn)
 {
+    pReceiver->message->address = 0xAA;
+    pReceiver->message->addressInv = 0xBB;
+    pReceiver->message->command = 0xCC;
+    pReceiver->message->commandInv = 0xDD;
+    pReceiver->message->repeat = 0xEE;
+
     data[0] = 1705052;
     data[1] = 2462448;
     data[2] = 2844152;
@@ -123,6 +140,12 @@ TEST(IR_Receiver, Decode_ValidLeadIn)
     LONGLONGS_EQUAL(0, pReceiver->buffer[0]);
     LONGLONGS_EQUAL(0, pReceiver->buffer[1]);
     LONGLONGS_EQUAL(2844152, pReceiver->buffer[2]);
+
+    BYTES_EQUAL(0, pReceiver->message->address);
+    BYTES_EQUAL(0, pReceiver->message->addressInv);
+    BYTES_EQUAL(0, pReceiver->message->command);
+    BYTES_EQUAL(0, pReceiver->message->commandInv);
+    BYTES_EQUAL(0, pReceiver->message->repeat);
 }
 
 TEST(IR_Receiver, Decode_InvalidLeadIn)
@@ -285,6 +308,7 @@ TEST(IR_Receiver, Decode_Command)
 TEST(IR_Receiver, Decode_CommandInv)
 {
     pReceiver->state = CommandInv;
+    pReceiver->message->command = 0x16;
 
     data[0] = 2916332;
     data[1] = 2965982;
@@ -303,11 +327,80 @@ TEST(IR_Receiver, Decode_CommandInv)
     data[14] = 3967833;
     data[15] = 4015342;
     data[16] = 4158628;
+    data[17] = 4206150;
 
     IR_Receiver_Decode(pReceiver);
 
-    BYTES_EQUAL(16, pReceiver->currentIndex);
+    BYTES_EQUAL(18, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
     CHECK(pReceiver->state == LeadIn);
     BYTES_EQUAL(0xE9, pReceiver->message->commandInv);
+    BYTES_EQUAL(0x16 , decodedCommand);
+}
+
+TEST(IR_Receiver, RepeatCommand)
+{
+    pMessage->command = 0x9E;
+    data[0] = 7309478;
+    data[1] = 8065082;
+    data[2] = 8260597;
+    data[3] = 8305454;
+    IR_Receiver_Decode(pReceiver);
+
+    BYTES_EQUAL(0x9E, decodedCommand);
+    BYTES_EQUAL(1, repeatCommand);
+    BYTES_EQUAL(4, pReceiver->currentIndex);
+    CHECK(pReceiver->state == LeadIn);
+    for (int i = 0; i < 4; i++)
+    {
+        LONGLONGS_EQUAL(0, pReceiver->buffer[i]);
+    }
+}
+
+IGNORE_TEST(IR_Receiver, CircularBuffer)
+{
+
+}
+
+IGNORE_TEST(IR_Receiver, FullCommand)
+{
+
+}
+
+IGNORE_TEST(IR_Receiver, BadAddressSignal)
+{
+
+}
+
+IGNORE_TEST(IR_Receiver, BadAddressInvSignal)
+{
+    
+}
+
+IGNORE_TEST(IR_Receiver, BadCommandSignal)
+{
+    
+}
+
+IGNORE_TEST(IR_Receiver, BadCommandInvSignal)
+{
+    
+}
+
+IGNORE_TEST(IR_Receiver, BadRepeatSignal)
+{
+    
+}
+
+static void decodeFinished_callback (IR_Message_t *pMessage)
+{
+    if (pMessage)
+    {
+        decodedCommand = pMessage->command;
+
+        if (pMessage->repeat)
+        {
+            repeatCommand = pMessage->repeat;
+        }
+    }
 }
