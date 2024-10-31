@@ -2,7 +2,7 @@
 SILENCE = @
 
 #---- Outputs ----#
-COMPONENT_NAME = IR_Receiver
+COMPONENT_NAME = IR_Decoder
 TARGET_LIB = \
 	lib/lib$(COMPONENT_NAME).a
 

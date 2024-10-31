@@ -1,11 +1,11 @@
-#include "IR_Receiver.h"
+#include "IR_Decoder.h"
 
 #include <string.h>
 
 static uint32_t getPulseTime(uint32_t time0, uint32_t time1, uint32_t period, uint8_t clockSpeed);
 static int8_t decodePulse(uint32_t fallingTime, uint32_t risingTime);
 
-void IR_Receiver_Init(IR_Receiver_t *receiver)
+void IR_Decoder_Init(IR_Decoder_t *receiver)
 {
     receiver->currentIndex = 0;
     receiver->pulseNumber = 0;
@@ -21,7 +21,7 @@ void IR_Receiver_Init(IR_Receiver_t *receiver)
     memset(receiver->buffer, 0, receiver->bufferSize * sizeof(*(receiver->buffer)));
 }
 
-void IR_Receiver_Decode(IR_Receiver_t *receiver)
+void IR_Decoder_Decode(IR_Decoder_t *receiver)
 {
     uint32_t time0 = receiver->buffer[receiver->currentIndex];
     uint32_t time1 = receiver->buffer[receiver->currentIndex + 1];

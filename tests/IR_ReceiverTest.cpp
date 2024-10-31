@@ -1,6 +1,6 @@
 extern "C"
 {
-#include "IR_Receiver.h"
+#include "IR_Decoder.h"
 
 #include <string.h>
 }
@@ -13,20 +13,20 @@ extern "C"
 
 
 static uint32_t data[BUFFER_SIZE];
-static IR_Receiver_t *pReceiver;
+static IR_Decoder_t *pReceiver;
 static IR_Message_t *pMessage;
 static uint8_t decodedCommand;
 static uint8_t repeatCommand;
 
 static void decodeFinished_callback(IR_Message_t *pMessage);
 
-TEST_GROUP(IR_Receiver)
+TEST_GROUP(IR_Decoder)
 {
     void setup()
     {
         decodedCommand = 0;
         repeatCommand = 0;
-        pReceiver = (IR_Receiver_t*)malloc(sizeof(IR_Receiver_t));
+        pReceiver = (IR_Decoder_t*)malloc(sizeof(IR_Decoder_t));
         pMessage = (IR_Message_t*)malloc(sizeof(IR_Message_t));
         pReceiver->buffer = data;
         pReceiver->bufferSize = BUFFER_SIZE;
@@ -35,7 +35,7 @@ TEST_GROUP(IR_Receiver)
         pReceiver->period = PERIOD;
         pReceiver->message = pMessage;
         pReceiver->decodeCallback = &decodeFinished_callback;
-        IR_Receiver_Init(pReceiver);
+        IR_Decoder_Init(pReceiver);
     }
 
     void teardown()
@@ -47,9 +47,9 @@ TEST_GROUP(IR_Receiver)
     }
 };
 
-TEST(IR_Receiver, Init)
+TEST(IR_Decoder, Init)
 {
-    IR_Receiver_t receiver;
+    IR_Decoder_t receiver;
     IR_Message_t message;
 
     message.address = 0xFF;
@@ -70,7 +70,7 @@ TEST(IR_Receiver, Init)
     receiver.message = &message;
     receiver.decodeCallback = &decodeFinished_callback;
 
-    IR_Receiver_Init(&receiver);
+    IR_Decoder_Init(&receiver);
     BYTES_EQUAL(0, receiver.currentIndex);
     BYTES_EQUAL(0, receiver.pulseNumber);
     BYTES_EQUAL(CLOCK_SPEED_MHZ, receiver.clockSpeed);
@@ -89,30 +89,30 @@ TEST(IR_Receiver, Init)
     }
 }
 
-TEST(IR_Receiver, Decode_Empty)
+TEST(IR_Decoder, Decode_Empty)
 {
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(0, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
     CHECK(pReceiver->state == LeadIn);
 }
 
-TEST(IR_Receiver, Decode_OneValue)
+TEST(IR_Decoder, Decode_OneValue)
 {
     data[0] = 3000;
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(0, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
     CHECK(pReceiver->state == LeadIn);
 }
 
-TEST(IR_Receiver, Decode_TwoValues)
+TEST(IR_Decoder, Decode_TwoValues)
 {
     data[0] = 3000;
     data[1] = 3500;
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
  
     BYTES_EQUAL(0, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
@@ -121,7 +121,7 @@ TEST(IR_Receiver, Decode_TwoValues)
     LONGLONGS_EQUAL(3500, pReceiver->buffer[1]);
 }
 
-TEST(IR_Receiver, Decode_ValidLeadIn)
+TEST(IR_Decoder, Decode_ValidLeadIn)
 {
     pReceiver->message->address = 0xAA;
     pReceiver->message->addressInv = 0xBB;
@@ -132,7 +132,7 @@ TEST(IR_Receiver, Decode_ValidLeadIn)
     data[0] = 1705052;
     data[1] = 2462448;
     data[2] = 2844152;
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(2, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
@@ -148,12 +148,12 @@ TEST(IR_Receiver, Decode_ValidLeadIn)
     BYTES_EQUAL(0, pReceiver->message->repeat);
 }
 
-TEST(IR_Receiver, Decode_InvalidLeadIn)
+TEST(IR_Decoder, Decode_InvalidLeadIn)
 {
     data[0] = 705052;
     data[1] = 2462448;
     data[2] = 3844152;
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
  
     BYTES_EQUAL(1, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
@@ -163,13 +163,13 @@ TEST(IR_Receiver, Decode_InvalidLeadIn)
 }
 
 
-TEST(IR_Receiver, Decode_Address)
+TEST(IR_Decoder, Decode_Address)
 {
     data[0] = 8240243;
     data[1] = 601040;
     data[2] = 983884;
     data[3] = 1033748;
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(2, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
@@ -180,7 +180,7 @@ TEST(IR_Receiver, Decode_Address)
 
     data[4] = 1079765;
 
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(4, pReceiver->currentIndex);
     BYTES_EQUAL(1, pReceiver->pulseNumber);
@@ -202,7 +202,7 @@ TEST(IR_Receiver, Decode_Address)
     data[18] = 1749561;
     data[19] = 1797381;
 
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(18, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
@@ -210,7 +210,7 @@ TEST(IR_Receiver, Decode_Address)
     CHECK(pReceiver->state == AddressInv);
 }
 
-TEST(IR_Receiver, Decode_AddressNonZero)
+TEST(IR_Decoder, Decode_AddressNonZero)
 {
     pReceiver->state = Address;
 
@@ -232,7 +232,7 @@ TEST(IR_Receiver, Decode_AddressNonZero)
     data[15] = 6367026;
     data[16] = 6513726;
 
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(16, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
@@ -245,7 +245,7 @@ TEST(IR_Receiver, Decode_AddressNonZero)
     }
 }
 
-TEST(IR_Receiver, Decode_InvAddress)
+TEST(IR_Decoder, Decode_InvAddress)
 {
     pReceiver->currentIndex = 19;
     pReceiver->state = AddressInv;
@@ -267,7 +267,7 @@ TEST(IR_Receiver, Decode_InvAddress)
     data[33] = 5170432;
     data[34] = 5217320;
     data[35] = 5266180;
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(35, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
@@ -275,7 +275,7 @@ TEST(IR_Receiver, Decode_InvAddress)
     CHECK(pReceiver->state == Command);
 }
 
-TEST(IR_Receiver, Decode_Command)
+TEST(IR_Decoder, Decode_Command)
 {
     pReceiver->state = Command;
 
@@ -297,7 +297,7 @@ TEST(IR_Receiver, Decode_Command)
     data[15] = 5410505;
     data[16] = 5557102;
 
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(16, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
@@ -305,7 +305,7 @@ TEST(IR_Receiver, Decode_Command)
     CHECK(pReceiver->state == CommandInv);
 }
 
-TEST(IR_Receiver, Decode_CommandInv)
+TEST(IR_Decoder, Decode_CommandInv)
 {
     pReceiver->state = CommandInv;
     pReceiver->message->command = 0x16;
@@ -329,7 +329,7 @@ TEST(IR_Receiver, Decode_CommandInv)
     data[16] = 4158628;
     data[17] = 4206150;
 
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(18, pReceiver->currentIndex);
     BYTES_EQUAL(0, pReceiver->pulseNumber);
@@ -338,14 +338,14 @@ TEST(IR_Receiver, Decode_CommandInv)
     BYTES_EQUAL(0x16 , decodedCommand);
 }
 
-TEST(IR_Receiver, RepeatCommand)
+TEST(IR_Decoder, RepeatCommand)
 {
     pMessage->command = 0x9E;
     data[0] = 7309478;
     data[1] = 8065082;
     data[2] = 8260597;
     data[3] = 8305454;
-    IR_Receiver_Decode(pReceiver);
+    IR_Decoder_Decode(pReceiver);
 
     BYTES_EQUAL(0x9E, decodedCommand);
     BYTES_EQUAL(1, repeatCommand);
@@ -357,37 +357,37 @@ TEST(IR_Receiver, RepeatCommand)
     }
 }
 
-IGNORE_TEST(IR_Receiver, CircularBuffer)
+IGNORE_TEST(IR_Decoder, CircularBuffer)
 {
 
 }
 
-IGNORE_TEST(IR_Receiver, FullCommand)
+IGNORE_TEST(IR_Decoder, FullCommand)
 {
 
 }
 
-IGNORE_TEST(IR_Receiver, BadAddressSignal)
+IGNORE_TEST(IR_Decoder, BadAddressSignal)
 {
 
 }
 
-IGNORE_TEST(IR_Receiver, BadAddressInvSignal)
-{
-    
-}
-
-IGNORE_TEST(IR_Receiver, BadCommandSignal)
+IGNORE_TEST(IR_Decoder, BadAddressInvSignal)
 {
     
 }
 
-IGNORE_TEST(IR_Receiver, BadCommandInvSignal)
+IGNORE_TEST(IR_Decoder, BadCommandSignal)
 {
     
 }
 
-IGNORE_TEST(IR_Receiver, BadRepeatSignal)
+IGNORE_TEST(IR_Decoder, BadCommandInvSignal)
+{
+    
+}
+
+IGNORE_TEST(IR_Decoder, BadRepeatSignal)
 {
     
 }
