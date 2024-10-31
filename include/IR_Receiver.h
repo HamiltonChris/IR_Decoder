@@ -16,6 +16,7 @@ typedef struct IR_Message_s {
     uint8_t addressInv;
     uint8_t command;
     uint8_t commandInv;
+    uint8_t repeat;
 } IR_Message_t;
 
 typedef struct IR_Receiver_s {
@@ -27,6 +28,7 @@ typedef struct IR_Receiver_s {
     uint8_t clockSpeed; // MHz
     DecoderState state;
     IR_Message_t *message; // may need a 2nd struct
+    void (*decodeCallback)(IR_Message_t*);
 } IR_Receiver_t;
 
 void IR_Receiver_Init(IR_Receiver_t *receiver);

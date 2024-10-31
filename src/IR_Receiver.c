@@ -16,6 +16,7 @@ void IR_Receiver_Init(IR_Receiver_t *receiver)
         receiver->message->addressInv = 0;
         receiver->message->command = 0;
         receiver->message->commandInv = 0;
+        receiver->message->repeat = 0;
     }
     memset(receiver->buffer, 0, receiver->bufferSize * sizeof(*(receiver->buffer)));
 }
@@ -35,11 +36,33 @@ void IR_Receiver_Decode(IR_Receiver_t *receiver)
         switch (receiver->state)
         {
         case LeadIn:
-            if (fallingTime < 9250 && fallingTime > 8750 && risingTime < 4750 && risingTime > 4250)
+            if (fallingTime < 9250 && fallingTime > 8750)
             {
-                receiver->state = Address;
-                receiver->buffer[receiver->currentIndex] = 0;
-                receiver->currentIndex++;
+                if (risingTime < 4750 && risingTime > 4250)
+                {
+                    receiver->state = Address;
+
+                    // clear message buffer for new message
+                    receiver->message->address = 0;
+                    receiver->message->addressInv = 0;
+                    receiver->message->command = 0;
+                    receiver->message->commandInv = 0;
+                    receiver->message->repeat = 0;
+
+                    receiver->buffer[receiver->currentIndex] = 0;
+                    receiver->currentIndex++;
+                }
+                else if (risingTime < 2750 && risingTime > 2250)
+                {
+                    receiver->message->repeat++;
+                    receiver->decodeCallback(receiver->message);
+                    receiver->buffer[receiver->currentIndex] = 0;
+                    receiver->currentIndex++;
+                    receiver->buffer[receiver->currentIndex] = 0;
+                    receiver->currentIndex++;
+                    receiver->buffer[receiver->currentIndex] = 0;
+                    receiver->currentIndex++;
+                }
             }
             break;
         case Address:
@@ -91,12 +114,15 @@ void IR_Receiver_Decode(IR_Receiver_t *receiver)
 
             if (receiver->pulseNumber == 8)
             {
+                receiver->decodeCallback(receiver->message);
                 receiver->pulseNumber = 0;
                 receiver->state = LeadIn;
-                // trigger interrupt
-                //
-                // delete extra values
-                // weird edge case when DMA doesn't have the last value but needs to delete it
+                // there is an extra rising time at the end of the signal that needs to be removed
+                receiver->buffer[receiver->currentIndex] = 0;
+                receiver->currentIndex++;
+                receiver->buffer[receiver->currentIndex] = 0;
+                receiver->currentIndex++;
+                // Note: weird edge case when DMA doesn't have the last value but needs to delete it
             }
             break;
         default:
