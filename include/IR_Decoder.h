@@ -17,6 +17,10 @@ typedef struct IR_Message_s {
     uint8_t command;
     uint8_t commandInv;
     uint8_t repeat;
+    uint8_t addressError;
+    uint8_t addressInvError;
+    uint8_t commandError;
+    uint8_t commandInvError;
 } IR_Message_t;
 
 typedef struct IR_Decoder_s {
