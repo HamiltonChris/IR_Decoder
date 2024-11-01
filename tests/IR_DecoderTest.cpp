@@ -410,9 +410,97 @@ TEST(IR_Decoder, BufferOverrunAddress)
     BYTES_EQUAL(6, pDecoder->currentIndex);
 }
 
-IGNORE_TEST(IR_Decoder, FullCommand)
+TEST(IR_Decoder, FullCommand)
 {
+    data[0] = 7584738;
+    data[1] = 8344355;
+    data[2] = 326320;
+    data[3] = 376072;
+    data[4] = 421711;
+    data[5] = 468956;
+    data[6] = 517313;
+    data[7] = 567149;
+    data[8] = 612841;
+    data[9] = 660528;
+    data[10] = 708440;
+    data[11] = 758181;
+    data[12] = 803909;
+    data[13] = 853780;
+    data[14] = 899524;
+    data[15] = 949364;
+    data[16] = 995015;
+    data[17] = 1044881;
+    data[18] = 1090559;
+    data[19] = 1137822;
+    data[20] = 1283950;
+    data[21] = 1331698;
+    data[22] = 1475124;
+    data[23] = 1522802;
+    data[24] = 1666220;
+    data[25] = 1713890;
+    data[26] = 1857192;
+    data[27] = 1904889;
+    data[28] = 2048264;
+    data[29] = 2096006;
+    data[30] = 2239465;
+    data[31] = 2287126;
+    data[32] = 2430557;
+    data[33] = 2478259;
+    data[34] = 2621684;
+    data[35] = 2669393;
+    data[36] = 2715072;
+    data[37] = 2762247;
+    data[38] = 2908427;
+    data[39] = 2956076;
+    data[40] = 3099483;
+    data[41] = 3147226;
+    data[42] = 3192856;
+    data[43] = 3239977;
+    data[44] = 3386079;
+    data[45] = 3433757;
+    data[46] = 3479429;
+    data[47] = 3526532;
+    data[48] = 3574913;
+    data[49] = 3622075;
+    data[50] = 3670341;
+    data[51] = 3717544;
+    data[52] = 3863565;
+    data[53] = 3911263;
+    data[54] = 3956969;
+    data[55] = 4006688;
+    data[56] = 4052515;
+    data[57] = 4102233;
+    data[58] = 4245695;
+    data[59] = 4293461;
+    data[60] = 4339088;
+    data[61] = 4388890;
+    data[62] = 4532287;
+    data[63] = 4580019;
+    data[64] = 4723359;
+    data[65] = 4771131;
+    data[66] = 4914414;
+    data[67] = 4962171;
+    data[68] = 8308051;
+    data[69] = 662991;
+    data[70] = 857815;
+    data[71] = 902921;
 
+    IR_Decoder_Decode(pDecoder);
+
+    CHECK(pDecoder->state == LeadIn);
+    BYTES_EQUAL(0, pDecoder->pulseNumber);
+    BYTES_EQUAL(72, pDecoder->currentIndex);
+    BYTES_EQUAL(0, pDecoder->message->address);
+    BYTES_EQUAL(0xFF, pDecoder->message->addressInv);
+    BYTES_EQUAL(0x16, pDecoder->message->command);
+    BYTES_EQUAL(0xE9, pDecoder->message->commandInv);
+    BYTES_EQUAL(1, pDecoder->message->repeat);
+    BYTES_EQUAL(0x16 , decodedCommand);
+    BYTES_EQUAL(1 , repeatCommand);
+    for (int i = 0; i < 72; i++)
+    {
+        LONGLONGS_EQUAL(0, pDecoder->buffer[i]);
+    }
 }
 
 IGNORE_TEST(IR_Decoder, BadAddressSignal)
