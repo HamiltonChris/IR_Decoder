@@ -25,6 +25,7 @@ void IR_Decoder_Init(IR_Decoder_t *decoder)
 {
     decoder->currentIndex = 0;
     decoder->pulseNumber = 0;
+    decoder->clearLast = 0;
     decoder->state = LeadIn;
     if (decoder->message)
     {
@@ -39,6 +40,13 @@ void IR_Decoder_Decode(IR_Decoder_t *decoder)
     uint32_t time1 = decoder->buffer[(decoder->currentIndex + 1) % decoder->bufferSize];
     uint32_t time2 = decoder->buffer[(decoder->currentIndex + 2) % decoder->bufferSize];
     uint32_t time3 = decoder->buffer[(decoder->currentIndex + 3) % decoder->bufferSize];
+
+    // check if cleanup from last decode call is required
+    if (decoder->clearLast)
+    {
+        decoder->buffer[decoder->currentIndex ? decoder->currentIndex - 1 : decoder->bufferSize - 1] = 0;
+        decoder->clearLast = 0;
+    }
 
     while (areTimestampsValid(time0, time1, time2, time3))
     {
@@ -139,10 +147,14 @@ void IR_Decoder_Decode(IR_Decoder_t *decoder)
                 decoder->decodeCallback(decoder->message);
                 decoder->pulseNumber = 0;
                 decoder->state = LeadIn;
+                clearCurrentIndex(decoder);
                 // there is an extra rising time at the end of the signal that needs to be removed
                 clearCurrentIndex(decoder);
-                clearCurrentIndex(decoder);
-                // Note: weird edge case when DMA doesn't have the last value but needs to delete it
+                // checking if the extra element is empty and setting a flag to erase it next decode call
+                if (decoder->buffer[(decoder->currentIndex + 1) % decoder->bufferSize] == 0)
+                {
+                    decoder->clearLast = 1;
+                }
             }
             break;
         default:

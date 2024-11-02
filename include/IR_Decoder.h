@@ -30,6 +30,7 @@ typedef struct IR_Decoder_s {
     uint8_t currentIndex;
     uint8_t pulseNumber;
     uint8_t clockSpeed; // MHz
+    uint8_t clearLast;
     DecoderState state;
     IR_Message_t *message; // may need a 2nd struct
     void (*decodeCallback)(IR_Message_t*);

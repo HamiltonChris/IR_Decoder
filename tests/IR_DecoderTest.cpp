@@ -73,11 +73,13 @@ TEST(IR_Decoder, Init)
     decoder.period = PERIOD;
     decoder.message = &message;
     decoder.decodeCallback = &decodeFinished_callback;
+    decoder.clearLast = 0xFF;
 
     IR_Decoder_Init(&decoder);
     BYTES_EQUAL(0, decoder.currentIndex);
     BYTES_EQUAL(0, decoder.pulseNumber);
     BYTES_EQUAL(CLOCK_SPEED_MHZ, decoder.clockSpeed);
+    BYTES_EQUAL(0, decoder.clearLast);
     LONGLONGS_EQUAL(PERIOD, decoder.period);
     CHECK(decoder.state == LeadIn);
     CHECK(decoder.message == &message);
@@ -732,7 +734,51 @@ TEST(IR_Decoder, CurrentAndNextIndexZero)
     BYTES_EQUAL(0, pDecoder->currentIndex);
 }
 
-static void decodeFinished_callback (IR_Message_t *pMessage)
+TEST(IR_Decoder, MissingFinalValue)
+{
+    pDecoder->state = CommandInv;
+    pDecoder->currentIndex = 14;
+    pDecoder->pulseNumber = 7;
+
+    data[14] = 3967833;
+    data[15] = 4015342;
+    data[16] = 4158628;
+
+    IR_Decoder_Decode(pDecoder);
+
+    BYTES_EQUAL(18, pDecoder->currentIndex);
+
+    data[17] = 4206150;
+    data[18] = 759617;
+
+    IR_Decoder_Decode(pDecoder);
+
+    LONGLONGS_EQUAL(0, pDecoder->buffer[17]);
+    LONGLONGS_EQUAL(759617, pDecoder->buffer[18]);
+}
+
+TEST(IR_Decoder, MissingFinalValueBoundary)
+{
+    pDecoder->state = CommandInv;
+    pDecoder->currentIndex = BUFFER_SIZE - 4;
+    pDecoder->pulseNumber = 7;
+
+    data[BUFFER_SIZE - 4] = 3967833;
+    data[BUFFER_SIZE - 3] = 4015342;
+    data[BUFFER_SIZE - 2] = 4158628;
+
+    IR_Decoder_Decode(pDecoder);
+
+    data[BUFFER_SIZE - 1] = 4206150;
+    data[0] = 759617;
+
+    IR_Decoder_Decode(pDecoder);
+
+    LONGLONGS_EQUAL(0, pDecoder->buffer[BUFFER_SIZE - 1]);
+    LONGLONGS_EQUAL(759617, pDecoder->buffer[0]);
+}
+
+static void decodeFinished_callback(IR_Message_t *pMessage)
 {
     if (pMessage)
     {
