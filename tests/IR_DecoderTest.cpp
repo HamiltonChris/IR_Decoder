@@ -30,7 +30,6 @@ TEST_GROUP(IR_Decoder)
         pMessage = (IR_Message_t*)malloc(sizeof(IR_Message_t));
         pDecoder->buffer = data;
         pDecoder->bufferSize = BUFFER_SIZE;
-        pDecoder->currentIndex = 0xFF;
         pDecoder->clockSpeed = CLOCK_SPEED_MHZ;
         pDecoder->period = PERIOD;
         pDecoder->message = pMessage;
