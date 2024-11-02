@@ -2,6 +2,19 @@
 
 #include <string.h>
 
+#define LEADIN_LOWPULSE_LOWBOUND 8750
+#define LEADIN_LOWPULSE_HIGHBOUND 9250
+#define LEADIN_HIGHPULSE_LOWBOUND 4250
+#define LEADIN_HIGHPULSE_HIGHBOUND 4750
+#define SHORTPULSE_LOWBOUND 500
+#define SHORTPULSE_HIGHBOUND 600
+#define LONGPULSE_LOWBOUND 1500
+#define LONGPULSE_HIGHBOUND 1800
+#define REPEAT_HIGHPULSE_LOWBOUND 2250
+#define REPEAT_HIGHPULSE_HIGHBOUND 2750
+
+#define MAXPULSES 8
+
 static void clearCurrentIndex(IR_Decoder_t *decoder);
 static void clearMessage(IR_Message_t* message);
 static uint32_t getPulseTime(uint32_t time0, uint32_t time1, uint32_t period, uint8_t clockSpeed);
@@ -36,16 +49,16 @@ void IR_Decoder_Decode(IR_Decoder_t *decoder)
         switch (decoder->state)
         {
         case LeadIn:
-            if (fallingTime < 9250 && fallingTime > 8750)
+            if (fallingTime < LEADIN_LOWPULSE_HIGHBOUND && fallingTime > LEADIN_LOWPULSE_LOWBOUND)
             {
-                if (risingTime < 4750 && risingTime > 4250)
+                if (risingTime < LEADIN_HIGHPULSE_HIGHBOUND && risingTime > LEADIN_HIGHPULSE_LOWBOUND)
                 {
                     decoder->state = Address;
 
                     // clear message buffer for new message
                     clearMessage(decoder->message);
                 }
-                else if (risingTime < 2750 && risingTime > 2250)
+                else if (risingTime < REPEAT_HIGHPULSE_HIGHBOUND && risingTime > REPEAT_HIGHPULSE_LOWBOUND)
                 {
                     decoder->message->repeat++;
                     decoder->decodeCallback(decoder->message);
@@ -66,7 +79,7 @@ void IR_Decoder_Decode(IR_Decoder_t *decoder)
 
             decoder->pulseNumber++;
 
-            if (decoder->pulseNumber == 8)
+            if (decoder->pulseNumber == MAXPULSES)
             {
                 decoder->pulseNumber = 0;
                 decoder->state = AddressInv;
@@ -85,7 +98,7 @@ void IR_Decoder_Decode(IR_Decoder_t *decoder)
 
             decoder->pulseNumber++;
 
-            if (decoder->pulseNumber == 8)
+            if (decoder->pulseNumber == MAXPULSES)
             {
                 decoder->pulseNumber = 0;
                 decoder->state = Command;
@@ -103,7 +116,7 @@ void IR_Decoder_Decode(IR_Decoder_t *decoder)
 
             decoder->pulseNumber++;
 
-            if (decoder->pulseNumber == 8)
+            if (decoder->pulseNumber == MAXPULSES)
             {
                 decoder->pulseNumber = 0;
                 decoder->state = CommandInv;
@@ -121,7 +134,7 @@ void IR_Decoder_Decode(IR_Decoder_t *decoder)
 
             decoder->pulseNumber++;
 
-            if (decoder->pulseNumber == 8)
+            if (decoder->pulseNumber == MAXPULSES)
             {
                 decoder->decodeCallback(decoder->message);
                 decoder->pulseNumber = 0;
@@ -179,13 +192,13 @@ static uint32_t getPulseTime(uint32_t time0, uint32_t time1, uint32_t period, ui
 
 static int8_t decodePulse(uint32_t fallingTime, uint32_t risingTime)
 {
-    if (fallingTime < 600 && fallingTime > 500)
+    if (fallingTime < SHORTPULSE_HIGHBOUND && fallingTime > SHORTPULSE_LOWBOUND)
     {
-        if (risingTime > 1500 && risingTime < 1800)
+        if (risingTime < LONGPULSE_HIGHBOUND && risingTime > LONGPULSE_LOWBOUND)
         {
             return 1;
         }
-        else if (risingTime < 600 && risingTime > 500)
+        else if (risingTime < SHORTPULSE_HIGHBOUND && risingTime > SHORTPULSE_LOWBOUND)
         {
             return 0;
         }
